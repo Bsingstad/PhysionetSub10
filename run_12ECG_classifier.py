@@ -94,11 +94,13 @@ def run_12ECG_classifier(data,header_data,loaded_model):
     #Rule-based model
     avg_hr = 0
     peaks = 0
+    rmssd = 0
+    qrs_voltage = 0
     try:
         peaks = DetectRWithPanTompkins(data[1],int(header_data[0].split()[2]))
         
         try:
-            peaks = R_correction(data[0], peaks)
+            peaks = R_correction(data[1], peaks)
         except:
             print("Did not manage to do R_correction")
         
@@ -108,10 +110,21 @@ def run_12ECG_classifier(data,header_data,loaded_model):
           
     try:
         rr_interval, avg_hr = heartrate(peaks,int(header_data[0].split()[2]))
+        try:
+            rmssd = np.mean(np.square(np.diff(rr_interval)))
+        except:
+            print("did not manage to comp rmssd")
     except:
         print("not able to calculate heart rate")
         rr_interval = 0
         avg_hr = 0
+    
+    try:
+        qrs_voltage = np.mean(data[1][peaks])
+    except:
+        print("Could not calculate mean QRS peak voltage")
+
+
 
     gender = header_data[14][6:-1]
     age=header_data[13][6:-1]
@@ -158,6 +171,30 @@ def run_12ECG_classifier(data,header_data,loaded_model):
             binary_prediction[14] = 1
         elif avg_hr > 100:
             binary_prediction[16] = 1
+
+    if qrs_voltage != 0:
+        if qrs_voltage < 500:
+            binary_prediction[9] = 1
+            binary_prediction[15] = 0
+        else:
+            binary_prediction[9] = 0
+    else:
+        binary_prediction[9] = 0
+
+    if rmssd != 0:
+        if rmssd < 15:
+            binary_prediction[0] = 1
+            binary_prediction[16] = 0
+            binary_prediction[15] = 0
+            binary_prediction[14] = 0
+            binary_prediction[13] = 0
+        elif 2000 < rmssd < 5000:
+            binary_prediction[18] = 1
+        elif 15000 < rmssd < 50000:
+            binary_prediction[2] = 1
+        else:
+            binary_prediction[15] = 1
+
 
 
     classes = ['10370003','111975006','164889003','164890007','164909002','164917005','164934002','164947007','17338001',
